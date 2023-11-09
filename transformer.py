@@ -12,6 +12,8 @@ import torch
 from torch.nn import Module, Linear, Softmax, ReLU, LayerNorm, ModuleList, Dropout, Embedding, CrossEntropyLoss
 from torch.optim import Adam
 
+import math
+
 class PositionalEncodingLayer(Module):
 
     def __init__(self, embedding_dim: int) -> None:
@@ -32,14 +34,24 @@ class PositionalEncodingLayer(Module):
 
         The output will have shape (batch_size, sequence_length, embedding_dim)
         """
-        b_size, T, d = X.shape
-        P = torch.zeros((T, d))
-        for pos in range(T):
-            for i in range(d//2):
-                P[pos, 2*i] = torch.sin(pos / (10000 ** (2*i / d)))
-                if 2 * i + 1 < d: P[pos, 2*i+1] = torch.cos(pos / (10000 ** (2*i / d)))
+        # b_size, T, d = X.shape
+        # P = torch.zeros((T, d))
+        # for pos in range(T):
+        #     for i in range(d//2):
+        #         P[pos, 2*i] = torch.sin(pos / (10000 ** (2*i / d)))
+        #         if 2 * i + 1 < d: P[pos, 2*i+1] = torch.cos(pos / (10000 ** (2*i / d)))
+        #
+        # return X + P
 
-        return X + P
+        b_size, seq_len, emb_dim = X.shape
+
+        position = torch.arange(0, seq_len).unsqueeze(1)
+        denom = torch.exp(torch.arange(0, emb_dim, 2).float() * -(math.log(10000.0) / emb_dim))
+        pos_enc = torch.zeros(1, seq_len, emb_dim)
+        pos_enc[0, :, 0::2] = torch.sin(position * denom)
+        pos_enc[0, :, 1::2] = torch.cos(position * denom)
+
+        return pos_enc + X
 
 
 class SelfAttentionLayer(Module):
