@@ -69,7 +69,7 @@ class SelfAttentionLayer(Module):
         self.out_dim = out_dim
 
     def forward(self, query_X: torch.Tensor, key_X: torch.Tensor, value_X: torch.Tensor,
-                mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+                mask: Optional[torch.Tensor] = None) -> tuple[torch.Tensor, torch.Tensor]:
         """
         query_X, key_X and value_X have shape (batch_size, sequence_length, in_dim). The sequence length
         may be different for query_X and key_X but must be the same for key_X and value_X.
@@ -85,7 +85,18 @@ class SelfAttentionLayer(Module):
             - torch.bmm (https://pytorch.org/docs/stable/generated/torch.bmm.html)
             - torch.Tensor.masked_fill (https://pytorch.org/docs/stable/generated/torch.Tensor.masked_fill.html)
         """
-        raise NotImplementedError()
+        q = self.linear_Q(query_X)
+        k = self.linear_K(key_X)
+        v = self.linear_V(value_X)
+
+        scores = (q @ k.transpose(1, 2)) / torch.sqrt(torch.tensor(self.out_dim))
+
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, float('-1e32'))
+
+        attention_weights = self.softmax(scores)
+        attention_output = attention_weights @ v
+        return attention_output, attention_weights
 
 class MultiHeadedAttentionLayer(Module):
 
