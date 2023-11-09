@@ -270,7 +270,8 @@ class Decoder(Module):
         Hint: The function torch.tril (https://pytorch.org/docs/stable/generated/torch.tril.html)
         may be useful.
         """
-        raise NotImplementedError()
+        mask = torch.ones((seq_length, seq_length))
+        return torch.tril(mask)
 
 
     def forward(self, encoded_source: torch.Tensor, source_padding: torch.Tensor,
