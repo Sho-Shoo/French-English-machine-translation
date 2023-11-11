@@ -327,7 +327,7 @@ class Transformer(Module):
         encoded_source, source_padding = self.encoder(source)
         return self.decoder(encoded_source, source_padding, target)
 
-    def predict(self, source: List[int], beam_size=1, max_length=12) -> List[int]:
+    def predict(self, source: List[int], beam_size=1, max_length=12) -> tuple[List[int], float]:
         """
         Given a sentence in the source language, you should output a sentence in the target
         language of length at most `max_length` that you generate using a beam search with
@@ -344,58 +344,52 @@ class Transformer(Module):
         """
         self.eval()  # Set the PyTorch Module to inference mode (this affects things like dropout)
 
-        if not isinstance(source, torch.Tensor):
-            source_input = torch.tensor(source).view(1, -1)
-        else:
-            source_input = source.view(1, -1)
+        # Ensure source is a tensor
+        source_seq = torch.tensor(source).view(1, -1) if not isinstance(source, torch.Tensor) else source.view(1, -1)
 
-        encoded_source, source_padding = self.encoder(source_input)
-        batch_size = encoded_source.shape[0]
-        input = torch.zeros((batch_size, 1)).to(torch.int64)
-        final_candidates = []
-        candidate_prob = []
-        candidate_prob.append([0, input])
+        # Perform encoding using the model's encoder
+        encoded_seq, seq_padding_mask = self.encoder(source_seq)
+        seq_batch_size = encoded_seq.shape[0]
+        init_token_seq = torch.zeros((seq_batch_size, 1)).to(torch.int64)
+        search_results = []
+        prob_seq_pairs = [[0, init_token_seq]]
+
+        # Perform beam search
         while beam_size > 0:
-            all_candidates = []
-            for pair in candidate_prob:
-                token = pair[1]
-                y, attention_weights = self.decoder(encoded_source, source_padding, token)
-                y = torch.softmax(y, dim=2)
-                top_k_token = torch.topk(y[0][-1], beam_size)[1]
-                top_k_prob = torch.topk(y[0][-1], beam_size)[0]
-                for i in range(len(top_k_token)):
-                    parent = pair[1]
-                    new_sentence = torch.cat((parent, top_k_token[i].reshape(1, 1)), dim=1)
-                    parent_prob = pair[0]
-                    new_prob = np.log(float(top_k_prob[i])) + parent_prob
-                    all_candidates.append([new_prob, new_sentence])
-            all_candidates.sort()
-            new_candidates = all_candidates[len(all_candidates) - beam_size:]
-            p = 0
-            while p < (len(new_candidates)):
-                pair = new_candidates[p]
-                sentence = pair[1]
-                sentence = (sentence.tolist())[0]
-                if sentence[-1] == 1:
-                    pair[0] = pair[0] / len(sentence)
-                    final_candidates.append(pair)
-                    new_candidates.pop(p)
-                    beam_size -= 1
-                elif len(sentence) >= max_length:
-                    pair[0] = pair[0] / len(sentence)
-                    final_candidates.append(pair)
-                    new_candidates.pop(p)
+            candidate_seq_list = []
+            for score_seq_pair in prob_seq_pairs:
+                last_token_seq = score_seq_pair[1]
+                decoder_output, weight = self.decoder(encoded_seq, seq_padding_mask, last_token_seq)
+                softmax_output = torch.softmax(decoder_output, dim=2)
+                top_tokens = torch.topk(softmax_output[0][-1], beam_size)[1]
+                top_scores = torch.topk(softmax_output[0][-1], beam_size)[0]
+                for idx in range(len(top_tokens)):
+                    base_seq = score_seq_pair[1]
+                    extended_seq = torch.cat((base_seq, top_tokens[idx].reshape(1, 1)), dim=1)
+                    accumulated_score = np.log(float(top_scores[idx])) + score_seq_pair[0]
+                    candidate_seq_list.append([accumulated_score, extended_seq])
+            candidate_seq_list.sort()
+            top_candidates = candidate_seq_list[-beam_size:]
+            idx = 0
+
+            while idx < len(top_candidates):
+                current_pair = top_candidates[idx]
+                current_seq_flat = current_pair[1].tolist()[0]
+                if current_seq_flat[-1] == 1 or len(current_seq_flat) >= max_length:
+                    current_pair[0] = current_pair[0] / len(current_seq_flat)
+                    search_results.append(current_pair)
+                    top_candidates.pop(idx)
                     beam_size -= 1
                 else:
-                    p += 1
-            candidate_prob = new_candidates
-        final_candidates.sort()
-        most_likely = final_candidates[-1]
-        prob = most_likely[0]
-        most_likely = most_likely[1]
-        most_likely = most_likely.tolist()
-        most_likely = most_likely[0]
-        return (most_likely, prob)
+                    idx += 1
+            prob_seq_pairs = top_candidates
+
+        search_results.sort()
+        optimal_result = search_results[-1]
+        optimal_score = optimal_result[0]
+        optimal_seq = optimal_result[1].tolist()[0]
+
+        return optimal_seq, optimal_score
 
 def load_data() -> Tuple[Tuple[List[int], List[int]], Tuple[List[int], List[int]], Dict[int, str], Dict[int, str]]:
     """ Load the dataset.
