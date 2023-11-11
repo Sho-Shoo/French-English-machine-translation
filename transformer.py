@@ -342,79 +342,60 @@ class Transformer(Module):
             - torch.topk (https://pytorch.org/docs/stable/generated/torch.topk.html)
             - torch.softmax (https://pytorch.org/docs/stable/generated/torch.nn.functional.softmax.html)
         """
-        self.eval() # Set the PyTorch Module to inference mode (this affects things like dropout)
+        self.eval()  # Set the PyTorch Module to inference mode (this affects things like dropout)
 
         if not isinstance(source, torch.Tensor):
             source_input = torch.tensor(source).view(1, -1)
         else:
             source_input = source.view(1, -1)
 
-        # Encode the source
         encoded_source, source_padding = self.encoder(source_input)
-
-        # Initialize the beam search
-        curr_beam = [([0], 0)]  # (sequence, log-likelihood)
-        final_beam = []
-        end_token = 1
-
-        for _ in range(max_length):
-            if beam_size == 0 or len(curr_beam) == 0: break
-
-            next_beam = []
-            probabilities = None
-            vocab_size = None
-
-            for sequence, log_likelihood in curr_beam:
-                # Convert the sequence to a tensor
-                input_tensor = torch.tensor(sequence).view(1, -1)
-
-                # Decode the next token
-                output, _ = self.decoder(encoded_source, source_padding, input_tensor)
-
-                # Apply softmax to get probabilities
-                if probabilities is None:
-                    probabilities = torch.log(torch.softmax(output[:, -1, :], dim=-1)) + log_likelihood
-                    vocab_size = probabilities.shape[1]
+        batch_size = encoded_source.shape[0]
+        input = torch.zeros((batch_size, 1)).to(torch.int64)
+        final_candidates = []
+        candidate_prob = []
+        candidate_prob.append([0, input])
+        while beam_size > 0:
+            all_candidates = []
+            for pair in candidate_prob:
+                token = pair[1]
+                y, attention_weights = self.decoder(encoded_source, source_padding, token)
+                y = torch.softmax(y, dim=2)
+                top_k_token = torch.topk(y[0][-1], beam_size)[1]
+                top_k_prob = torch.topk(y[0][-1], beam_size)[0]
+                for i in range(len(top_k_token)):
+                    parent = pair[1]
+                    new_sentence = torch.cat((parent, top_k_token[i].reshape(1, 1)), dim=1)
+                    parent_prob = pair[0]
+                    new_prob = np.log(float(top_k_prob[i])) + parent_prob
+                    all_candidates.append([new_prob, new_sentence])
+            all_candidates.sort()
+            new_candidates = all_candidates[len(all_candidates) - beam_size:]
+            p = 0
+            while p < (len(new_candidates)):
+                pair = new_candidates[p]
+                sentence = pair[1]
+                sentence = (sentence.tolist())[0]
+                if sentence[-1] == 1:
+                    pair[0] = pair[0] / len(sentence)
+                    final_candidates.append(pair)
+                    new_candidates.pop(p)
+                    beam_size -= 1
+                elif len(sentence) >= max_length:
+                    pair[0] = pair[0] / len(sentence)
+                    final_candidates.append(pair)
+                    new_candidates.pop(p)
+                    beam_size -= 1
                 else:
-                    new_probs = torch.log(torch.softmax(output[:, -1, :], dim=-1)) + log_likelihood
-                    probabilities = torch.cat( (probabilities, new_probs), dim=1 )
-
-                # Get the top k predictions and their log-likelihoods
-            values, indices = torch.topk(probabilities, beam_size)
-
-            for value, index in zip(values[0], indices[0]):
-                sequence, log_likelihood = curr_beam[index.item() // vocab_size]
-                next_sequence = sequence + [index.item() % vocab_size]
-                next_log_likelihood = value.item()
-
-                next_beam.append((next_sequence, next_log_likelihood))
-
-            # Sort the beam by log-likelihood and keep the top beam_size sequences
-            # next_beam.sort(key=lambda x: x[1], reverse=True)
-            # prev_beam = next_beam[:beam_size]
-            prev_beam = next_beam[:]
-            curr_beam = []
-
-            for seq, likelihood in prev_beam:
-                if end_token in seq:
-                    final_beam.append([seq, likelihood])
-                    # beam_size -= 1
-                else:
-                    curr_beam.append([seq, likelihood])
-
-            # Check if the end token is in any of the sequences
-            # if any(end_token in seq for seq, _ in curr_beam):
-            #     break
-
-        if curr_beam:
-            final_beam.extend(curr_beam)
-        final_beam.sort(key=lambda x: x[1], reverse=True)
-
-        # Return the top sequence and its average log-likelihood
-        top_sequence, top_log_likelihood = final_beam[0]
-        average_log_likelihood = top_log_likelihood / len(top_sequence)
-
-        return top_sequence, average_log_likelihood
+                    p += 1
+            candidate_prob = new_candidates
+        final_candidates.sort()
+        most_likely = final_candidates[-1]
+        prob = most_likely[0]
+        most_likely = most_likely[1]
+        most_likely = most_likely.tolist()
+        most_likely = most_likely[0]
+        return (most_likely, prob)
 
 def load_data() -> Tuple[Tuple[List[int], List[int]], Tuple[List[int], List[int]], Dict[int, str], Dict[int, str]]:
     """ Load the dataset.
