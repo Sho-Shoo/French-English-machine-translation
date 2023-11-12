@@ -539,7 +539,18 @@ def bleu_score(predicted: List[int], target: List[int], N: int = 4) -> float:
 
 
 if __name__ == "__main__":
+    EPOCHS = 30
+    QUESTION = '2a'
+
     train_sentences, test_sentences, source_vocab, target_vocab = load_data()
     
     train_source, train_target = preprocess_data(train_sentences, len(source_vocab), len(target_vocab), 12)
     test_source, test_target = preprocess_data(test_sentences, len(source_vocab), len(target_vocab), 12)
+
+    transformer = Transformer(len(source_vocab), len(target_vocab), 256, 1, 1, 1)
+    train_loss, test_loss = train(transformer, train_source, train_target, test_source, test_target, len(target_vocab),
+                                  epochs=EPOCHS)
+
+    torch.save(transformer.state_dict(), f'output/{QUESTION}/model.pkl')
+    np.save(f'output/{QUESTION}/train_loss', train_loss)
+    np.save(f'output/{QUESTION}/test_loss', test_loss)
