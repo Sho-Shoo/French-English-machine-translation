@@ -2,7 +2,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 if __name__ == "__main__":
-    QUESTION = '2a'
+    QUESTION = '2e'
 
     test_loss = np.load(f'output/{QUESTION}/test_loss.npy')
     train_loss = np.load(f'output/{QUESTION}/train_loss.npy')

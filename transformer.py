@@ -476,7 +476,7 @@ def train(model: Transformer, train_source: torch.Tensor, train_target: torch.Te
     epoch_train_loss = np.zeros(epochs)
     epoch_test_loss = np.zeros(epochs)
 
-    for ep in range(epochs):
+    for ep in tqdm(range(epochs)):
 
         train_loss = 0
         test_loss = 0
@@ -540,14 +540,17 @@ def bleu_score(predicted: List[int], target: List[int], N: int = 4) -> float:
 
 if __name__ == "__main__":
     EPOCHS = 30
-    QUESTION = '2a'
+    QUESTION = '2e'
+    N_ENCODERS = 2
+    N_DECODERS = 4
+    N_HEADS = 4
 
     train_sentences, test_sentences, source_vocab, target_vocab = load_data()
     
     train_source, train_target = preprocess_data(train_sentences, len(source_vocab), len(target_vocab), 12)
     test_source, test_target = preprocess_data(test_sentences, len(source_vocab), len(target_vocab), 12)
 
-    transformer = Transformer(len(source_vocab), len(target_vocab), 256, 1, 1, 1)
+    transformer = Transformer(len(source_vocab), len(target_vocab), 256, N_ENCODERS, N_DECODERS, N_HEADS)
     train_loss, test_loss = train(transformer, train_source, train_target, test_source, test_target, len(target_vocab),
                                   epochs=EPOCHS)
 
