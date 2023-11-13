@@ -554,14 +554,30 @@ if __name__ == "__main__":
     transformer.load_state_dict(torch.load("output/2e/model.pkl"))
     transformer.eval()
 
+    ################### Q5 ###################
+    avg_likelihoods = [-0.24344101760911172, -0.23207810300032686, -0.2273868364227314, -0.2196743762294325, -0.21966718185228618, -0.21944324851449365, -0.21944324851449365, -0.21944324851449365]
+    beam_sizes = list(range(1, 9))
+    # for beam_size in range(1, 9):
+    #     likelihoods = []
+    #     for french, english in tqdm(test_sentences[:100], desc=f"Beam size: {beam_size}"):
+    #         translation, likelihood = transformer.predict(french, beam_size=beam_size)
+    #         likelihoods.append(likelihood)
+    #     avg_likelihoods.append(sum(likelihoods) / len(likelihoods))
+
+    plt.title("Q5")
+    plt.plot(beam_sizes, avg_likelihoods)
+    plt.xlabel("Beam size")
+    plt.ylabel("Avg log likelihood")
+    plt.show()
+
     ################### Q4 ###################
-    for i in range(3):
-        french, english = train_sentences[i][0], train_sentences[i][1]
-        _, attention_matrices = transformer(train_source[i].reshape(1, -1), train_target[i, :].reshape(1, -1))
-        attention_matrices = attention_matrices.squeeze()
-        for attention_matrix in attention_matrices:
-            attention_matrix = attention_matrix.detach().numpy()
-            visualize_attention(french, english, source_vocab, target_vocab, attention_matrix)
+    # for i in range(3):
+    #     french, english = train_sentences[i][0], train_sentences[i][1]
+    #     _, attention_matrices = transformer(train_source[i].reshape(1, -1), train_target[i, :].reshape(1, -1))
+    #     attention_matrices = attention_matrices.squeeze()
+    #     for attention_matrix in attention_matrices:
+    #         attention_matrix = attention_matrix.detach().numpy()
+    #         visualize_attention(french, english, source_vocab, target_vocab, attention_matrix)
 
     ################### Q3 ###################
     # for i in range(8):
