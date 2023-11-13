@@ -546,14 +546,29 @@ if __name__ == "__main__":
     N_HEADS = 4
 
     train_sentences, test_sentences, source_vocab, target_vocab = load_data()
-    
+
     train_source, train_target = preprocess_data(train_sentences, len(source_vocab), len(target_vocab), 12)
     test_source, test_target = preprocess_data(test_sentences, len(source_vocab), len(target_vocab), 12)
 
     transformer = Transformer(len(source_vocab), len(target_vocab), 256, N_ENCODERS, N_DECODERS, N_HEADS)
-    train_loss, test_loss = train(transformer, train_source, train_target, test_source, test_target, len(target_vocab),
-                                  epochs=EPOCHS)
+    transformer.load_state_dict(torch.load("output/2e/model.pkl"))
+    transformer.eval()
 
-    torch.save(transformer.state_dict(), f'output/{QUESTION}/model.pkl')
-    np.save(f'output/{QUESTION}/train_loss', train_loss)
-    np.save(f'output/{QUESTION}/test_loss', test_loss)
+    ################### Q3 ###################
+    # for i in range(8):
+    #     french, english = test_sentences[i][0], test_sentences[i][1]
+    #     translation, likelihood = transformer.predict(french, beam_size=3)
+    #     print(f"Original French is:       {decode_sentence(french, source_vocab)}")
+    #     print(f"Corresponding English is: {decode_sentence(english, target_vocab)}")
+    #     print(f"Translation is:           {decode_sentence(translation, target_vocab)}")
+    #     print(f"Log-likelihood is:        {likelihood}")
+    #     print("------------------------------------------------")
+
+    ################### Q2 ###################
+    # transformer = Transformer(len(source_vocab), len(target_vocab), 256, N_ENCODERS, N_DECODERS, N_HEADS)
+    # train_loss, test_loss = train(transformer, train_source, train_target, test_source, test_target, len(target_vocab),
+    #                               epochs=EPOCHS)
+    #
+    # torch.save(transformer.state_dict(), f'output/{QUESTION}/model.pkl')
+    # np.save(f'output/{QUESTION}/train_loss', train_loss)
+    # np.save(f'output/{QUESTION}/test_loss', test_loss)
