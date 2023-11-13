@@ -554,6 +554,15 @@ if __name__ == "__main__":
     transformer.load_state_dict(torch.load("output/2e/model.pkl"))
     transformer.eval()
 
+    ################### Q4 ###################
+    for i in range(3):
+        french, english = train_sentences[i][0], train_sentences[i][1]
+        _, attention_matrices = transformer(train_source[i].reshape(1, -1), train_target[i, :].reshape(1, -1))
+        attention_matrices = attention_matrices.squeeze()
+        for attention_matrix in attention_matrices:
+            attention_matrix = attention_matrix.detach().numpy()
+            visualize_attention(french, english, source_vocab, target_vocab, attention_matrix)
+
     ################### Q3 ###################
     # for i in range(8):
     #     french, english = test_sentences[i][0], test_sentences[i][1]
