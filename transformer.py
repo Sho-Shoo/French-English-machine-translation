@@ -519,6 +519,42 @@ def train(model: Transformer, train_source: torch.Tensor, train_target: torch.Te
         print(f"Epoch {ep + 1}: Train loss = {epoch_train_loss[ep]:.4f}, Test loss = {epoch_test_loss[ep]:.4f}")
     return epoch_train_loss, epoch_test_loss
 
+
+def count_occurrences(ngram, sentence, n):
+    count = 0
+    for start in range(len(sentence) - n + 1):
+        snippet = tuple(sentence[start:start+n])
+        if snippet == ngram: count += 1
+    return count
+
+
+def bleu_score_helper(predicted, target, n):
+    ngrams = set()
+    for start in range(len(predicted)-n+1):
+        ngram = tuple(predicted[start:start+n])
+        ngrams.add(ngram)
+
+    enum = 0
+    for ngram in ngrams:
+        predicted_occurrences = count_occurrences(ngram, predicted, n)
+        target_occurrences = count_occurrences(ngram, target, n)
+        enum += min(predicted_occurrences, target_occurrences)
+
+    return enum / max(len(predicted) - n + 1, 1)
+
+
+def strip_sentence(sentence):
+    output = []
+    for word in sentence:
+        if word == 1:
+            return output
+        elif word == 0:
+            continue
+        else:
+            output.append(word)
+
+    raise ValueError(f"Sentence {sentence} is never terminated by EOS")
+
 def bleu_score(predicted: List[int], target: List[int], N: int = 4) -> float:
     """
     *** For students in 10-617 only ***
@@ -535,7 +571,16 @@ def bleu_score(predicted: List[int], target: List[int], N: int = 4) -> float:
     If the length of the predicted sentence or the target is less than N,
     the BLEU score is 0.
     """
-    raise NotImplementedError()
+    predicted = strip_sentence(predicted)
+    target = strip_sentence(target)
+
+    accum_scores = []
+    for n in range(1, N+1):
+        accum_scores.append(bleu_score_helper(predicted, target, n))
+    accum_scores = np.array(accum_scores)
+    geom_mean = accum_scores.prod()**(1.0/len(accum_scores))
+    penalty = min(1, np.exp(1 - len(target) / len(predicted)))
+    return geom_mean * penalty
 
 
 if __name__ == "__main__":
