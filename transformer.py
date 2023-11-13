@@ -69,7 +69,7 @@ class SelfAttentionLayer(Module):
         self.out_dim = out_dim
 
     def forward(self, query_X: torch.Tensor, key_X: torch.Tensor, value_X: torch.Tensor,
-                mask: Optional[torch.Tensor] = None) -> tuple[torch.Tensor, torch.Tensor]:
+                mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         query_X, key_X and value_X have shape (batch_size, sequence_length, in_dim). The sequence length
         may be different for query_X and key_X but must be the same for key_X and value_X.
@@ -327,7 +327,7 @@ class Transformer(Module):
         encoded_source, source_padding = self.encoder(source)
         return self.decoder(encoded_source, source_padding, target)
 
-    def predict(self, source: List[int], beam_size=1, max_length=12) -> tuple[List[int], float]:
+    def predict(self, source: List[int], beam_size=1, max_length=12) -> List[int]:
         """
         Given a sentence in the source language, you should output a sentence in the target
         language of length at most `max_length` that you generate using a beam search with
@@ -600,20 +600,20 @@ if __name__ == "__main__":
     transformer.eval()
 
     ################### Q5 ###################
-    avg_likelihoods = [-0.24344101760911172, -0.23207810300032686, -0.2273868364227314, -0.2196743762294325, -0.21966718185228618, -0.21944324851449365, -0.21944324851449365, -0.21944324851449365]
-    beam_sizes = list(range(1, 9))
-    # for beam_size in range(1, 9):
-    #     likelihoods = []
-    #     for french, english in tqdm(test_sentences[:100], desc=f"Beam size: {beam_size}"):
-    #         translation, likelihood = transformer.predict(french, beam_size=beam_size)
-    #         likelihoods.append(likelihood)
-    #     avg_likelihoods.append(sum(likelihoods) / len(likelihoods))
-
-    plt.title("Q5")
-    plt.plot(beam_sizes, avg_likelihoods)
-    plt.xlabel("Beam size")
-    plt.ylabel("Avg log likelihood")
-    plt.show()
+    # avg_likelihoods = [-0.24344101760911172, -0.23207810300032686, -0.2273868364227314, -0.2196743762294325, -0.21966718185228618, -0.21944324851449365, -0.21944324851449365, -0.21944324851449365]
+    # beam_sizes = list(range(1, 9))
+    # # for beam_size in range(1, 9):
+    # #     likelihoods = []
+    # #     for french, english in tqdm(test_sentences[:100], desc=f"Beam size: {beam_size}"):
+    # #         translation, likelihood = transformer.predict(french, beam_size=beam_size)
+    # #         likelihoods.append(likelihood)
+    # #     avg_likelihoods.append(sum(likelihoods) / len(likelihoods))
+    #
+    # plt.title("Q5")
+    # plt.plot(beam_sizes, avg_likelihoods)
+    # plt.xlabel("Beam size")
+    # plt.ylabel("Avg log likelihood")
+    # plt.show()
 
     ################### Q4 ###################
     # for i in range(3):
