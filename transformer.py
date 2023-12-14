@@ -368,7 +368,7 @@ class Transformer(Module):
                     extended_seq = torch.cat((base_seq, top_tokens[idx].reshape(1, 1)), dim=1)
                     accumulated_score = np.log(float(top_scores[idx])) + score_seq_pair[0]
                     candidate_seq_list.append([accumulated_score, extended_seq])
-            candidate_seq_list.sort()
+            candidate_seq_list.sort(key=lambda x: x[0])
             top_candidates = candidate_seq_list[-beam_size:]
             idx = 0
 
@@ -553,7 +553,7 @@ def strip_sentence(sentence):
         else:
             output.append(word)
 
-    raise ValueError(f"Sentence {sentence} is never terminated by EOS")
+    return output
 
 def bleu_score(predicted: List[int], target: List[int], N: int = 4) -> float:
     """
@@ -583,6 +583,17 @@ def bleu_score(predicted: List[int], target: List[int], N: int = 4) -> float:
     return geom_mean * penalty
 
 
+def calc_avg_bleu_score(transformer, test_source, test_target, bleu_n):
+    scores = []
+    for french, english in zip(test_source, test_target):
+        french, english = french.tolist(), english.tolist()
+        translation, _ = transformer.predict(french, beam_size=3)
+        score = bleu_score(translation, english, bleu_n)
+        scores.append(score)
+
+    return sum(scores) / len(scores)
+
+
 if __name__ == "__main__":
     EPOCHS = 30
     QUESTION = '2e'
@@ -595,25 +606,42 @@ if __name__ == "__main__":
     train_source, train_target = preprocess_data(train_sentences, len(source_vocab), len(target_vocab), 12)
     test_source, test_target = preprocess_data(test_sentences, len(source_vocab), len(target_vocab), 12)
 
+    # questions = ['2a', '2b', '2c', '2d', '2e']
+    # filenames = [f"output/{q}/model.pkl" for q in questions]
+    # configs = [[1, 1, 1], [1, 1, 4], [2, 2, 1], [2, 2, 4], [2, 4, 4]]
+    #
+    # for filename, config, question in zip(filenames, configs, questions):
+    #     transformer = Transformer(len(source_vocab), len(target_vocab), 256, *config)
+    #     transformer.load_state_dict(torch.load(filename))
+    #     transformer.eval()
+    #     for bleu_n in range(1, 5):
+    #         avg_score = calc_avg_bleu_score(transformer, test_source, test_target, bleu_n)
+    #         print(f"Model {question} | BLEU-{bleu_n} : {round(avg_score, 4)}")
+
+
+
+    ################### Q5 ###################
     transformer = Transformer(len(source_vocab), len(target_vocab), 256, N_ENCODERS, N_DECODERS, N_HEADS)
     transformer.load_state_dict(torch.load("output/2e/model.pkl"))
     transformer.eval()
-
-    ################### Q5 ###################
     # avg_likelihoods = [-0.24344101760911172, -0.23207810300032686, -0.2273868364227314, -0.2196743762294325, -0.21966718185228618, -0.21944324851449365, -0.21944324851449365, -0.21944324851449365]
-    # beam_sizes = list(range(1, 9))
-    # # for beam_size in range(1, 9):
-    # #     likelihoods = []
-    # #     for french, english in tqdm(test_sentences[:100], desc=f"Beam size: {beam_size}"):
-    # #         translation, likelihood = transformer.predict(french, beam_size=beam_size)
-    # #         likelihoods.append(likelihood)
-    # #     avg_likelihoods.append(sum(likelihoods) / len(likelihoods))
-    #
-    # plt.title("Q5")
-    # plt.plot(beam_sizes, avg_likelihoods)
-    # plt.xlabel("Beam size")
-    # plt.ylabel("Avg log likelihood")
-    # plt.show()
+    avg_likelihoods = []
+    beam_sizes = list(range(1, 9))
+    for beam_size in beam_sizes:
+        likelihoods = []
+        for i in tqdm(range(100), desc=f"Beam size: {beam_size}"):
+            french = test_source[i, :].tolist()
+            translation, likelihood = transformer.predict(french, beam_size=beam_size)
+            likelihoods.append(likelihood)
+        avg_likelihoods.append(sum(likelihoods) / len(likelihoods))
+
+    print(f"avg_likelihoods: {avg_likelihoods}")
+
+    plt.title("Q5")
+    plt.plot(beam_sizes, avg_likelihoods)
+    plt.xlabel("Beam size")
+    plt.ylabel("Avg log likelihood")
+    plt.show()
 
     ################### Q4 ###################
     # for i in range(3):
